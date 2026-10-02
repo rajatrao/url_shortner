@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  database:
+    image: postgres:15-alpine
+    container_name: urlshortener-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: urlshortener
+      POSTGRES_PASSWORD: "${DB_PASSWORD:-mysecret123}"
+      POSTGRES_DB: urlshortener
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    container_name: urlshortener-api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-urlshortener}:${DB_PASSWORD:-mysecret123}@urlshortener-db:5432/urlshortener?sslmode=disable
+      DB_PASSWORD: ${DB_PASSWORD:-mysecret123}
+    depends_on:
+      database:
+        condition: service_healthy
+
+  # Note: For complex passwords with special characters (!@#$), use docker-compose.override.yml
+  # or set the DATABASE_URL directly in your environment with proper escaping
+
+volumes:
+  pgdata:
